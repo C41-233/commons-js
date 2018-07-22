@@ -4,15 +4,6 @@ function global_fallback(){
 	throw new Error("overload function not found!")
 }
 
-function global_bind_nothing(func){
-	for(var key in global.overload){
-		var name = "$$" + key + "$"
-		if(global[name] === undefined){
-			global[name] = func(key)
-		}
-	}
-}
-
 function make_assert(define){
 	var argc = define.length - 1
 	var iss = []
@@ -53,9 +44,7 @@ function make_assert(define){
 	}
 	else{
 		return {
-			action: (_this, args) => {
-				return define[argc].apply(_this, args)
-			},
+			action: (_this, args) => define[argc].apply(_this, args),
 			is: args => {
 				if(args.length !== argc){
 					return false
@@ -109,19 +98,28 @@ global.overload = function(defines){
 	}
 }
 
-global.overload.string = v => typeof(v) === "string"
-global.overload.number = v => typeof(v) === "number"
-global.overload.object = v => typeof(v) === "object"
-global.overload.function = v => typeof(v) === "function"
-global.overload.array = v => v instanceof Array
-
-global_bind_nothing(key => v => v === undefined || v === null || global.overload[key](v))
-
-global.overload.instanceof = function(t){
-	return v => v instanceof t
+function bind(name, func, type){
+	global.overload[name] = func
+	
+	if(type === 1){
+		global.overload[name + "$"] = v => global.overload.nothing(v) || func(v)
+	}
+	else if(type === 2){
+		global.overload[name + "$"] = () => v => global.overload.nothing(v) || func(arguments)
+	}
+	
+	global["$" + name] = global.overload[name]
+	global["$" + name + "$"] = global.overload[name + "$"]
 }
 
-global.overload.arrayof = function(e){
+bind("string", v => typeof(v) === "string", 1)
+bind("number", v => typeof(v) === "number", 1)
+bind("object", v => typeof(v) === "object", 1)
+bind("function", v => typeof(v) === "function", 1)
+bind("array", v => v.length !== undefined, 1)
+
+bind("instanceof", t => v => v instanceof t, 2)
+bind("arrayof", function(e){
 	var element_assert = make_assert_one(e)
 	return v => {
 		if(v instanceof Array){
@@ -134,22 +132,17 @@ global.overload.arrayof = function(e){
 		}
 		return false
 	}
-}
+}, 2)
 
-global_bind_nothing(key => e => {
-	var action = global.overload[key](e)
-	return v => v === undefined || v === null || action(v)
-})
+bind("null", v => v === null)
+bind("undefined", v => v === undefined)
+bind("nothing", v => v === null || v === undefined)
+bind("any", v => true)
 
-global.overload.null = v => v === null
-global.overload.undefined = v => v === undefined
-global.overload.nothing = v => v === null || v === undefined
-global.overload.any = v => true
-
-global.overload.varargs = (args, from) => true
+bind("varargs", (args, from) => true)
 global.overload.varargs.is_overload_var_arg = true
 
-global.overload.varargsof = function(e){
+bind("varargsof", function(e){
 	var element_assert = make_assert_one(e)
 	var rst = (args, from) => {
 		for(var i=from; i<args.length; i++){
@@ -161,10 +154,6 @@ global.overload.varargsof = function(e){
 	}
 	rst.is_overload_var_arg = true
 	return rst
-}
-
-for(var key in global.overload){
-	global["$$"+key] = global.overload[key]
-}
+})
 
 })(typeof window !== "undefined" ? window : this);

@@ -64,8 +64,16 @@ function make_assert_one(obj){
 	if(obj.is_overload_var_arg){
 		return obj
 	}
+	else if(typeof(obj) === "function"){
+		if(obj.prototype === undefined){
+			return obj
+		}
+		else{
+			return v => v instanceof obj
+		}
+	}
 	else{
-		return v => (obj.prototype !== undefined && v instanceof obj) || obj(v)
+		return v => v == obj
 	}
 }
 
@@ -116,13 +124,14 @@ bind("string", v => typeof(v) === "string", 1)
 bind("number", v => typeof(v) === "number", 1)
 bind("object", v => typeof(v) === "object", 1)
 bind("function", v => typeof(v) === "function", 1)
-bind("array", v => v.length !== undefined, 1)
+bind("array", v => v !== undefined && typeof(v.length) === "number" && v.length >= 0, 1)
 
 bind("instanceof", t => v => v instanceof t, 2)
-bind("arrayof", function(e){
+bind("propertyof", t => v => v[t] !== undefined, 2)
+bind("arrayof", e => {
 	var element_assert = make_assert_one(e)
 	return v => {
-		if(v instanceof Array){
+		if(global.overload.array(v)){
 			for(var i=0; i<v.length; i++){
 				if(!element_assert(v[i])){
 					return false
@@ -142,7 +151,7 @@ bind("any", v => true)
 bind("varargs", (args, from) => true)
 global.overload.varargs.is_overload_var_arg = true
 
-bind("varargsof", function(e){
+bind("varargsof", e => {
 	var element_assert = make_assert_one(e)
 	var rst = (args, from) => {
 		for(var i=from; i<args.length; i++){

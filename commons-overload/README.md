@@ -61,7 +61,7 @@ Argument should be an array-like object, and each element should match *descript
 ```javascript
 var show = overload([
     [$arrayof($string), () => "string array"],
-	[$arrayof($number), () => "number array"]
+    [$arrayof($number), () => "number array"]
 ])
 
 show(['1', '2', '3'])
@@ -89,7 +89,7 @@ Argument is null or undefined.
 Short for `$instanceof`.
 
 #### $instanceof(*type*)
-Argument should be instance of `type`.
+Argument should be instance of *type*.
 ```javascript
 function MyObj1(){}
 function MyObj2(){}

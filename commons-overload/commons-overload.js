@@ -1,8 +1,14 @@
 (function(global){
 
+/*
+ * global fallback handler
+ * just throw exception
+ */
 function global_fallback(){
 	throw new Error("overload function not found!")
 }
+
+/* core function */
 
 function make_assert(define){
 	var argc = define.length - 1
@@ -11,21 +17,10 @@ function make_assert(define){
 		iss.push(make_assert_one(define[i]))
 	}
 	
-	var has_var_arg = define.length > 0 && !!(define[argc-1].is_overload_var_arg)
+	var has_var_arg = define.length > 0 && (define[argc-1] instanceof overload_var_arg)
 	if(has_var_arg){
 		return {
-			action: (_this, args) => {
-				var realArgs = []
-				for(var i = 0; i < argc-1; i++){
-					realArgs.push(args[i])
-				}
-				var varargs = []
-				for(var i = argc-1; i < args.length; i++){
-					varargs.push(args[i])
-				}
-				realArgs.push(varargs)
-				return define[argc].apply(_this, realArgs)
-			},
+			action: (_this, args) => define[argc].apply(_this, args),
 			is: args => {
 				if(args.length < argc-1){
 					return false
@@ -38,7 +33,7 @@ function make_assert(define){
 				if(args.length == argc-1){
 					return true
 				}
-				return iss[argc-1](args, argc-1)
+				return iss[argc-1].match(args, argc-1)
 			}
 		}
 	}
@@ -61,7 +56,7 @@ function make_assert(define){
 }
 
 function make_assert_one(obj){
-	if(obj.is_overload_var_arg){
+	if(obj instanceof overload_var_arg){
 		return obj
 	}
 	else if(typeof(obj) === "function"){
@@ -106,28 +101,56 @@ global.overload = function(defines){
 	}
 }
 
-function bind(name, func, type){
+var DirectAssert = 1
+var FunctionAssert = 2
+
+function bind(name, func){
 	global.overload[name] = func
-	
-	if(type === 1){
-		global.overload[name + "$"] = v => global.overload.nothing(v) || func(v)
-	}
-	else if(type === 2){
-		global.overload[name + "$"] = () => v => global.overload.nothing(v) || func(arguments)
-	}
-	
-	global["$" + name] = global.overload[name]
-	global["$" + name + "$"] = global.overload[name + "$"]
+	global["$" + name] = func
 }
 
-bind("string", v => typeof(v) === "string", 1)
-bind("number", v => typeof(v) === "number", 1)
-bind("object", v => typeof(v) === "object", 1)
-bind("function", v => typeof(v) === "function", 1)
-bind("array", v => v !== undefined && typeof(v.length) === "number" && v.length >= 0, 1)
+/* varargs bind */
 
-bind("instanceof", t => v => v instanceof t, 2)
-bind("propertyof", t => v => v[t] !== undefined, 2)
+function overload_var_arg(match){
+	this.match = match
+}
+
+bind("varargs", new overload_var_arg((args, from) => true))
+
+bind("varargsof", e => {
+	var element_assert = make_assert_one(e)
+	var rst = (args, from) => {
+		for(var i=from; i<args.length; i++){
+			if(!element_assert(args[i])){
+				return false
+			}
+		}
+		return true
+	}
+	return new overload_var_arg(rst)
+})
+
+/* custom bind */
+
+bind("string", v => typeof(v) === "string")
+bind("number", v => typeof(v) === "number")
+bind("object", v => typeof(v) === "object")
+bind("function", v => typeof(v) === "function")
+bind("array", v => v !== undefined && typeof(v.length) === "number" && v.length >= 0)
+
+bind("instanceof", t => v => v instanceof t)
+bind("propertyof", (...arguments) => {
+	var properties = arguments
+	return v => {
+		for(var i = 0; i < properties.length; i++){
+			var property = properties[i]
+			if(typeof(v[property]) === "undefined"){
+				return false
+			}
+		}
+		return true
+	}
+})
 bind("arrayof", e => {
 	var element_assert = make_assert_one(e)
 	return v => {
@@ -141,28 +164,11 @@ bind("arrayof", e => {
 		}
 		return false
 	}
-}, 2)
+})
 
 bind("null", v => v === null)
 bind("undefined", v => v === undefined)
 bind("nothing", v => v === null || v === undefined)
 bind("any", v => true)
-
-bind("varargs", (args, from) => true)
-global.overload.varargs.is_overload_var_arg = true
-
-bind("varargsof", e => {
-	var element_assert = make_assert_one(e)
-	var rst = (args, from) => {
-		for(var i=from; i<args.length; i++){
-			if(!element_assert(args[i])){
-				return false
-			}
-		}
-		return true
-	}
-	rst.is_overload_var_arg = true
-	return rst
-})
 
 })(typeof window !== "undefined" ? window : this);

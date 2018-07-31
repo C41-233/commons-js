@@ -1,7 +1,7 @@
 QUnit.test("overload1", function(assert) {
 	var show = overload([
 		[$string, s => "string"],
-		[$number, s => "number"]
+		[$number, s => "number"],
 	])
 	
 	assert.strictEqual(show("123"), "string")
@@ -42,10 +42,10 @@ QUnit.test("this", function(assert) {
 
 QUnit.test("varargs", function(assert) {
 	var show = overload([
-		[$string, $varargs, function(s, args){
+		[$string, $varargs, function(s, ...args){
 			return s + args.length + args[0]
 		}],
-		[$number, $number, $varargs, function(n1, n2, ns){
+		[$number, $number, $varargs, function(n1, n2, ...ns){
 			return n1 + n2 + ns.length + ns[1]
 		}],
 		function(){
@@ -56,3 +56,30 @@ QUnit.test("varargs", function(assert) {
 	assert.strictEqual(show("123", "123"), "1231123")
 	assert.strictEqual(show(1, 2, 3, 4), 1 + 2 + 2 + 4)
 });
+
+QUnit.test("propertyof", function(assert){
+	var show = overload([
+		[$propertyof("title", "name"), () => "match1"],
+		[$propertyof("title"), () => "match2"]
+	])
+	assert.strictEqual(show({title: "title", name: "name"}), "match1")
+	assert.strictEqual(show({title: "title"}), "match2")
+})
+
+QUnit.test("instanceof", function(assert){
+	function MyObj1(){}
+	function MyObj2(){}
+	function MyObj3(){}
+	function MyObj4(){}
+	
+	var show = overload([
+		[$instanceof(MyObj1), () => "MyObj1"],
+		[$instanceof(MyObj2), () => "MyObj2"],
+		[MyObj3, () => "MyObj3"],
+		[MyObj4, () => "MyObj4"]
+	])
+	assert.strictEqual(show(new MyObj1()), "MyObj1")
+	assert.strictEqual(show(new MyObj2()), "MyObj2")
+	assert.strictEqual(show(new MyObj3()), "MyObj3")
+	assert.strictEqual(show(new MyObj4()), "MyObj4")
+})

@@ -5,7 +5,16 @@
  * just throw exception
  */
 function global_fallback(){
-	throw new Error("overload function not found!")
+	var msg = "overload function not found, args=["
+	for(var i = 0; i < arguments.length; i++){
+		var arg = arguments[i]
+		msg += arg
+		if(i != arguments.length - 1){
+			msg += ", "
+		}
+	}
+	msg += "]"
+	throw new Error(msg)
 }
 
 /* core function */
@@ -68,7 +77,7 @@ function make_assert_one(obj){
 		}
 	}
 	else{
-		return v => v == obj
+		throw new Error("Unknown descriptor of " + obj)
 	}
 }
 
@@ -100,9 +109,6 @@ global.overload = function(defines){
 		return fallback.apply(this, arguments)
 	}
 }
-
-var DirectAssert = 1
-var FunctionAssert = 2
 
 function bind(name, func){
 	global.overload[name] = func
@@ -170,5 +176,20 @@ bind("null", v => v === null)
 bind("undefined", v => v === undefined)
 bind("nothing", v => v === null || v === undefined)
 bind("any", v => true)
+
+bind("nullor", e => {
+	var element_assert = make_assert_one(e)
+	return v => v === null || element_assert(v)
+})
+
+bind("undefinedor", e => {
+	var element_assert = make_assert_one(e)
+	return v => v === undefined || element_assert(v)
+})
+
+bind("nothingor", e => {
+	var element_assert = make_assert_one(e)
+	return v => v === undefined || v === null || element_assert(v)
+})
 
 })(typeof window !== "undefined" ? window : this);

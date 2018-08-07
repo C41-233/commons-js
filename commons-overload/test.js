@@ -83,3 +83,10 @@ QUnit.test("instanceof", function(assert){
 	assert.strictEqual(show(new MyObj3()), "MyObj3")
 	assert.strictEqual(show(new MyObj4()), "MyObj4")
 })
+
+QUnit.test("throw", function(assert){
+	var show = overload([
+		[$string, () => "success"]
+	])
+	assert.throws(() => show(123), Error)
+})

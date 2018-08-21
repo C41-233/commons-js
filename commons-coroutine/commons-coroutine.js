@@ -1,15 +1,17 @@
-(function(global){
+(function(global, undefined){
 
 "use strict";
+
+let abort = Symbol("stop")
 
 function Coroutine(coroutine){
 	let self = this
 	let stopped = false
 	
-	let pinned_promise
+	let current_promise = undefined
 	
 	let promise = new Promise(function(success, fail){
-		self.stop = stop
+		self[abort] = stop
 		dispatch()
 		
 		function stop(rst){
@@ -17,13 +19,14 @@ function Coroutine(coroutine){
 				return
 			}
 			stopped = true
-			if(pinned_promise instanceof Coroutine){
-				pinned_promise.stop(rst)
+			if(current_promise !== undefined && typeof(current_promise[abort]) === "function"){
+				current_promise[abort](rst)
 			}
 			fail(rst)
 		}
 		
 		function dispatch(value){
+			current_promise = undefined
 			if(stopped){
 				return
 			}
@@ -48,6 +51,7 @@ function Coroutine(coroutine){
 		}
 
 		function error(rst){
+			current_promise = undefined
 			if(stopped){
 				return
 			}
@@ -60,13 +64,19 @@ function Coroutine(coroutine){
 			}
 		}
 		
-		function next(promise){
+		function next(value){
 			//must function*
-			if(typeof(promise) === "function"){
-				promise = co(promise)
+			if(typeof(value) === "function"){
+				value = co(value)
 			}
-			pinned_promise = promise
-			promise.then(
+			//yield one frame
+			else if(typeof(value) === "undefined"){
+				value = new Promise(s => global.setTimeout(s, 0))
+			}
+			
+			//or promise
+			current_promise = value
+			value.then(
 				rst => dispatch(rst), 
 				rst => error(rst)
 			)
@@ -83,6 +93,9 @@ function Coroutine(coroutine){
 	
 	self.then = (...args) => Promise.prototype.then.apply(promise, args)
 	self.catch = (...args) => Promise.prototype.catch.apply(promise, args)
+	self.stop = function(rst){
+		return this[abort](rst)
+	}
 }
 
 let co = function(coroutine){
@@ -96,19 +109,39 @@ let co = function(coroutine){
 global.co = co
 
 co.wait = {
-	milliseconds: function(time){
-		return new Promise(function(success, error){
-			global.setTimeout(
-				() => success(), 
-				time
-			)
-		})
-	},
+	milliseconds: time => new Promise(success => global.setTimeout(success, time)),
 	seconds: function(time){
 		return this.milliseconds(1000 * time)
 	}
 }
+
+co.symbol = {
+	stop: abort
+}
+
 co.wait.ms = co.wait.milliseconds
 co.wait.s = co.wait.seconds
 
-})(typeof window !== "undefined" ? window : this);
+co.event = (element, name) => {
+	if(jQuery && element instanceof jQuery){
+		return new Promise(success => element.one(name, success))
+	}
+	
+	if(global.document && typeof(global.document.getElementById) === "function" && typeof(element) === "string"){
+		element = global.document.getElementById(element)
+	}
+	return new Promise(
+		success => { 
+			let cb = function(){
+				element.removeEventListener(name, cb)
+				success()
+			}
+			element.addEventListener(name, cb)
+		}
+	)
+}
+
+})(
+	typeof(window) !== "undefined" && typeof window.body === "object" ? window : this, 
+	undefined
+);

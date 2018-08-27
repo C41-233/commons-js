@@ -123,7 +123,7 @@ co.wait.ms = co.wait.milliseconds
 co.wait.s = co.wait.seconds
 
 co.event = (element, name) => {
-	if(jQuery && element instanceof jQuery){
+	if(global.jQuery && element instanceof global.jQuery){
 		return new Promise(success => element.one(name, success))
 	}
 	

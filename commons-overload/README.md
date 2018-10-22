@@ -65,11 +65,9 @@ var show = overload([
     [$arrayof($number), () => "number array"]
 ])
 
-show(['1', '2', '3'])
-// "string array"
+show(['1', '2', '3']) // "string array"
 
-show([1, 2, 3])
-// "number array"
+show([1, 2, 3]) // "number array"
 ```
 
 #### $any
